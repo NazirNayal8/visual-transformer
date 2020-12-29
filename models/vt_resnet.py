@@ -20,25 +20,27 @@ class VTResNet(nn.Module):
         layers: List[int],
         tokens: int,
         token_channels: int,
+        input_dim: int,
+        layer_planes: List[int],
         num_classes: int = 1000,
     ) -> None:
-        super(VTResNet, self).__init__()
+        super().__init__()
         
         self.norm_layer = nn.BatchNorm2d
         self.inplanes = 64
         self.layers = layers
         
-        # TODO: layer planes and resolutions should be computed
-        # using formulas instead of hardcoding.
-        self.layer1_planes = 64
-        self.layer2_planes = 128
-        self.layer3_planes = 256
-        self.layer4_planes = 512
+        # defaut values for resnet are [64, 128, 256, 512]
+        self.layer1_planes = layer_planes[0]
+        self.layer2_planes = layer_planes[1]
+        self.layer3_planes = layer_planes[2]
+        self.layer4_planes = layer_planes[3]
         
-        self.layer1_res = 56
-        self.layer2_res = 28
-        self.layer3_res = 14
-        self.layer4_res = 14
+        # for input of size 224 default values are [56, 28, 14, 14]
+        self.layer1_res = input_dim // 4 
+        self.layer2_res = input_dim // 8
+        self.layer3_res = input_dim // 16
+        self.layer4_res = input_dim // 16
         
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = self.norm_layer(self.inplanes)
@@ -124,7 +126,6 @@ class VTResNet(nn.Module):
     
     def forward(self, x: Tensor) -> Tensor:
         
-        
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -143,11 +144,8 @@ class VTResNet(nn.Module):
         for i in range(1, self.layers[3]):
             x, t = self.vt_layers[i](x, t)
         
-        print(x.shape)
         x = x.view(N, self.layer4_planes, self.layer4_res, self.layer4_res)
-        print(x.shape)
         x = self.avgpool(x)
-        print(x.shape)
         x = torch.flatten(x, 1)
         x = self.fc(x)
         
