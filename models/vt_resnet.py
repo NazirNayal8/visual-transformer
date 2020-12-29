@@ -144,6 +144,9 @@ class VTResNet(nn.Module):
         for i in range(1, self.layers[3]):
             x, t = self.vt_layers[i](x, t)
         
+        print(x.shape)
+        print(N, self.layer4_planes, self.layer4_res, self.layer4_res)
+        
         x = x.view(N, self.layer4_planes, self.layer4_res, self.layer4_res)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)

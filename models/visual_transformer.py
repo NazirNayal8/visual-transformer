@@ -48,8 +48,16 @@ class VisualTransformer(nn.Module):
             self.tokenizer = RecurrentTokenizer(in_channels, token_channels)
         else:
             self.tokenizer = FilterTokenizer(in_channels, token_channels, tokens)
-                             
-        self.transformer = Transformer(token_channels, attn_dim)
+        
+        # Transformer(token_channels, attn_dim)
+        self.transformer = nn.Transformer(
+            token_channels, 
+            nhead=token_channels, 
+            num_encoder_layers=4, 
+            num_decoder_layers=0, 
+            dim_feedforward=1024,
+            dropout=0.5
+        )
         
         self.projector = None
         if is_projected:
@@ -78,7 +86,7 @@ class VisualTransformer(nn.Module):
         else:
             t = self.tokenizer(x, t)
         # apply transformer
-        out = self.transformer(t)
+        out = self.transformer(t, t)
         
         if self.is_projected:
             out = self.projector(x, t)
