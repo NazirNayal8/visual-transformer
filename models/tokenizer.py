@@ -21,9 +21,10 @@ class FilterTokenizer(nn.Module):
         
         self.linear1 = nn.Linear(in_channels, tokens)
         self.linear2 = nn.Linear(in_channels, token_channels)
+
         # initialize weights
-        nn.init.kaiming_normal_(self.linear1.weight)
-        nn.init.kaiming_normal_(self.linear2.weight)
+        nn.init.xavier_normal_(self.linear1.weight)
+        nn.init.xavier_normal_(self.linear2.weight)
     
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -38,11 +39,11 @@ class FilterTokenizer(nn.Module):
         """
         
         a = self.linear1(x) # of size (N, HW, L)
-        a = a.softmax(dim=1) # softmax for HW dimension, such that every group l features sum to 1
+        a = a.softmax(dim=2) # softmax for HW dimension, such that every group l features sum to 1
         a = torch.transpose(a, 1 , 2) # swap dimensions 1 and 2, of size (N, L, HW)
         a = a.matmul(x)  # of size (N, L, C)
         a = self.linear2(a) # of size (N, L, D)
-        
+
         return a
 
 class RecurrentTokenizer(nn.Module):
@@ -62,9 +63,10 @@ class RecurrentTokenizer(nn.Module):
         self.token_channels = token_channels
         self.linear1 = nn.Linear(token_channels, token_channels)
         self.linear2 = nn.Linear(in_channels, token_channels)
+
         # initialize weights
-        nn.init.kaiming_normal_(self.linear1.weight)
-        nn.init.kaiming_normal_(self.linear2.weight)
+        nn.init.xavier_normal_(self.linear1.weight)
+        nn.init.xavier_normal_(self.linear2.weight)
         
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
         """
@@ -81,11 +83,12 @@ class RecurrentTokenizer(nn.Module):
         """
     
         a = self.linear1(t) # of size (N, L, D)
-        x = self.linear2(x) # of size (N, HW, D)
         
+        x = self.linear2(x) # of size (N, HW, D)
+       
         a = torch.transpose(a, 1, 2) # transpose by swapping dimensions to become (N, D, L)
         a = x.matmul(a) # of size (N, HW, L)
-        a = a.softmax(dim=1) # softmax for HW dimension, such that every group l features sum to 1
+        a = a.softmax(dim=2) # softmax for HW dimension, such that every group l features sum to 1
         a = torch.transpose(a, 1, 2) # transpose by swapping dimensions to become (N, L, HW)
         x = a.matmul(x) # of size (N, L, D)
 

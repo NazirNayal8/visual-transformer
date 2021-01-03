@@ -27,22 +27,22 @@ class Projector(nn.Module):
         self.token_channels = token_channels
         
         self.linear1 = nn.Linear(in_channels, out_channels) # modifies feature map (query)
-        self.linear2 = nn.Linear(token_channels, out_channels) # modifies tokens (key)
+        self.linear2 = nn.Linear(token_channels , out_channels) # modifies tokens (key)
         self.linear3 = nn.Linear(token_channels, out_channels) # modifies tokens (value)
         
-        nn.init.kaiming_normal_(self.linear1.weight)
-        nn.init.kaiming_normal_(self.linear2.weight)
-        nn.init.kaiming_normal_(self.linear3.weight)
-        
+        nn.init.xavier_normal_(self.linear1.weight)
+        nn.init.xavier_normal_(self.linear2.weight)
+        nn.init.xavier_normal_(self.linear3.weight)
+ 
         # if input size is not same as output size
         # we use downsample to adjust the size of the input feature map
         self.downsample = None
         if in_channels != out_channels:
             self.downsample = nn.Sequential(
                 nn.Linear(in_channels, out_channels),
-#                   TransposeLayer(1, 2),
-#                   nn.BatchNorm1d(out_channels),
-#                   TransposeLayer(1, 2)
+                #    TransposeLayer(1, 2),
+                #    nn.BatchNorm1d(out_channels),
+                #    TransposeLayer(1, 2)
             )
         
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
@@ -57,13 +57,13 @@ class Projector(nn.Module):
             
         x_q = self.linear1(x) # of size (N, HW, C_out)
         t_q = self.linear2(t) # of size (N, L, C_out)
-        
+
         t_q = torch.transpose(t_q, 1, 2) # of size (N, C_out, L) 
         a = x_q.matmul(t_q) # of size (N, HW, L)
         a = a.softmax(dim=2) # of size (N, HW, L)
         
         t = self.linear3(t) # of size (N, L, C_out)
-        
+
         a = a.matmul(t) # of shape (N, HW, C_out)
         
         if self.downsample != None:

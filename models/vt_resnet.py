@@ -22,6 +22,10 @@ class VTResNet(nn.Module):
         token_channels: int,
         input_dim: int,
         layer_planes: List[int],
+        transformer_enc_layers: int,
+        transformer_heads: int,
+        transformer_fc_dim: int = 2024,
+        transformer_dropout: int = 0.5,
         num_classes: int = 1000,
     ) -> None:
         super().__init__()
@@ -66,6 +70,8 @@ class VTResNet(nn.Module):
             blocks= layers[2],
             stride=2,
         )
+
+        self.bn = nn.BatchNorm2d(self.layer3_planes)
         
         self.vt_layers = nn.ModuleList()
         self.vt_layers.append(
@@ -76,6 +82,10 @@ class VTResNet(nn.Module):
                 tokens=tokens,
                 tokenizer_type='filter',
                 attn_dim=token_channels,
+                transformer_enc_layers=transformer_enc_layers,
+                transformer_heads=transformer_heads,
+                transformer_fc_dim=transformer_fc_dim,
+                transformer_dropout=transformer_dropout,
                 is_projected=True
             )
         )
@@ -89,6 +99,10 @@ class VTResNet(nn.Module):
                     tokens=tokens,
                     tokenizer_type='recurrent',
                     attn_dim=token_channels,
+                    transformer_enc_layers=transformer_enc_layers,
+                    transformer_heads=transformer_heads,
+                    transformer_fc_dim=transformer_fc_dim,
+                    transformer_dropout=transformer_dropout,
                     is_projected=True
                 )
             )
@@ -135,6 +149,8 @@ class VTResNet(nn.Module):
         x = self.resnet_layer2(x)
         x = self.resnet_layer3(x)
         
+        x = self.bn(x)
+
         N, C, H, W = x.shape
         # flatten pixels
         x = x.view(N, H * W, -1)
@@ -143,11 +159,8 @@ class VTResNet(nn.Module):
         
         for i in range(1, self.layers[3]):
             x, t = self.vt_layers[i](x, t)
-        
-        print(x.shape)
-        print(N, self.layer4_planes, self.layer4_res, self.layer4_res)
-        
-        x = x.view(N, self.layer4_planes, self.layer4_res, self.layer4_res)
+         
+        x = x.reshape(N, self.layer4_planes, self.layer4_res, self.layer4_res)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
