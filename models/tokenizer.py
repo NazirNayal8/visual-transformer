@@ -18,17 +18,13 @@ class FilterTokenizer(nn.Module):
         self.tokens = tokens
         self.in_channels = in_channels
         self.token_channels = token_channels
-        
-        self.linear1 = nn.Linear(in_channels, tokens)
-        self.linear2 = nn.Linear(in_channels, token_channels)
-
-        # initialize weights
-        nn.init.xavier_normal_(self.linear1.weight)
-        nn.init.xavier_normal_(self.linear2.weight)
     
+        self.conv1 = nn.Conv2d(in_channels, tokens, kernel_size=1)
+        self.linear1 = nn.Linear(in_channels, token_channels)
+
     def forward(self, x: Tensor) -> Tensor:
         """
-        Expected Input Dimensions: (N, HW, C), where:
+        Expected Input Dimensions: (N, C, H, W), where:
         - N: batch size
         - HW: number of pixels
         - C: number of input feature map channels
@@ -37,12 +33,18 @@ class FilterTokenizer(nn.Module):
         - L: number of tokens
         - D: number of token channels
         """
-        
-        a = self.linear1(x) # of size (N, HW, L)
+
+        N, C, H, W = x.shape
+
+        a = self.conv1(x) # of size (N, L, H, W)
+
+        a = a.view(N, self.tokens, H * W)
         a = a.softmax(dim=2) # softmax for HW dimension, such that every group l features sum to 1
-        a = torch.transpose(a, 1 , 2) # swap dimensions 1 and 2, of size (N, L, HW)
-        a = a.matmul(x)  # of size (N, L, C)
-        a = self.linear2(a) # of size (N, L, D)
+        
+        b = x.view(N, H * W, C)
+        a = a.matmul(b)  # of size (N, L, C)
+        
+        a = self.linear1(a) # of size (N, L, D)
 
         return a
 
@@ -62,16 +64,12 @@ class RecurrentTokenizer(nn.Module):
         
         self.token_channels = token_channels
         self.linear1 = nn.Linear(token_channels, token_channels)
-        self.linear2 = nn.Linear(in_channels, token_channels)
-
-        # initialize weights
-        nn.init.xavier_normal_(self.linear1.weight)
-        nn.init.xavier_normal_(self.linear2.weight)
-        
+        self.conv1 = nn.Conv2d(in_channels, token_channels, kernel_size=1)
+ 
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
         """
         Expected Input:
-        - x : image features input, of size (N, HW, C)
+        - x : image features input, of size (N, C, H, W)
         - t : token features extracted previously, of size (N, L, D)
         
         Expected  Output:
@@ -81,16 +79,22 @@ class RecurrentTokenizer(nn.Module):
         - N : batch size
         - HW: number of pixels
         """
+
+        N, C, H, W = x.shape
     
         a = self.linear1(t) # of size (N, L, D)
         
-        x = self.linear2(x) # of size (N, HW, D)
+        x = self.conv1(x) # of size (N, D, H, W)
        
         a = torch.transpose(a, 1, 2) # transpose by swapping dimensions to become (N, D, L)
-        a = x.matmul(a) # of size (N, HW, L)
+        
+        b = x.view(N, H * W, self.token_channels)
+
+        a = b.matmul(a) # of size (N, HW, L)
         a = a.softmax(dim=2) # softmax for HW dimension, such that every group l features sum to 1
         a = torch.transpose(a, 1, 2) # transpose by swapping dimensions to become (N, L, HW)
-        x = a.matmul(x) # of size (N, L, D)
+        
+        t = a.matmul(b) # of size (N, L, D)
 
-        return x
+        return t
     

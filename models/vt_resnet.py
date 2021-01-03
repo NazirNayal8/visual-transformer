@@ -117,6 +117,8 @@ class VTResNet(nn.Module):
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight)
         
     
     def _make_layer(self, block: Type[Union[BasicBlock, Bottleneck]], planes: int, blocks: int,
@@ -152,15 +154,17 @@ class VTResNet(nn.Module):
         x = self.bn(x)
 
         N, C, H, W = x.shape
-        # flatten pixels
-        x = x.view(N, H * W, -1)
+        
+        # flatten pixels (temporarily suspended)
+        # x = x.view(N, H * W, -1)
         
         x, t = self.vt_layers[0](x)
         
         for i in range(1, self.layers[3]):
             x, t = self.vt_layers[i](x, t)
          
-        x = x.reshape(N, self.layer4_planes, self.layer4_res, self.layer4_res)
+        # x = x.reshape(N, self.layer4_planes, self.layer4_res, self.layer4_res)
+        
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
