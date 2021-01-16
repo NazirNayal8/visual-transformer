@@ -26,6 +26,7 @@ class VTResNet(nn.Module):
         transformer_heads: int,
         transformer_fc_dim: int = 2024,
         transformer_dropout: int = 0.5,
+        image_channels: int = 3,
         num_classes: int = 1000,
     ) -> None:
         super().__init__()
@@ -33,6 +34,7 @@ class VTResNet(nn.Module):
         self.norm_layer = nn.BatchNorm2d
         self.inplanes = 64
         self.layers = layers
+        self.tokens = tokens
         
         # defaut values for resnet are [64, 128, 256, 512]
         self.layer1_planes = layer_planes[0]
@@ -46,7 +48,7 @@ class VTResNet(nn.Module):
         self.layer3_res = input_dim // 16
         self.layer4_res = input_dim // 16
         
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(image_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = self.norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -93,8 +95,8 @@ class VTResNet(nn.Module):
         for _ in range(1, layers[3]):
             self.vt_layers.append(
                 VisualTransformer(
-                    in_channels=self.layer4_planes,
-                    out_channels=self.layer4_planes,
+                    in_channels= self.layer4_planes,
+                    out_channels= self.layer4_planes,
                     token_channels=token_channels,
                     tokens=tokens,
                     tokenizer_type='recurrent',
@@ -161,6 +163,7 @@ class VTResNet(nn.Module):
             x, t = self.vt_layers[i](x, t)
          
         x = x.reshape(N, self.layer4_planes, self.layer4_res, self.layer4_res)
+          
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
