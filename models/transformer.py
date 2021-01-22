@@ -58,7 +58,7 @@ class Transformer(nn.Module):
     - L: number of tokens
     - D: number of token channels
     """
-    def __init__(self, token_channels: int, attn_dim: int) -> None:
+    def __init__(self, token_channels: int, attn_dim: int, dropout: int) -> None:
         super(Transformer, self).__init__()
         
         self.token_channels = token_channels
@@ -67,7 +67,7 @@ class Transformer(nn.Module):
         self.attention = SelfAttention(token_channels, attn_dim)
         self.linear1 = nn.Linear(token_channels, token_channels)
         self.linear2 = nn.Linear(token_channels, token_channels)
-        
+
         nn.init.kaiming_normal_(self.linear1.weight)
         nn.init.kaiming_normal_(self.linear2.weight)
         
@@ -88,7 +88,9 @@ class Transformer(nn.Module):
         - D : number of token channels
         """
         a = x + self.attention(x) # of size (N, L, D)
+
         a = self.layer_norm1(a) # of size (N, L, D)
+       
         b = self.linear1(a) # of size (N, L, D)
         b = F.relu(b)
         b = self.linear2(b) # of size (N, L, D)

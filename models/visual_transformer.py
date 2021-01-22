@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing import Optional
 import math
-from .transformer import Transformer
+from .transformer import Transformer, SelfAttention
 from .tokenizer import FilterTokenizer, RecurrentTokenizer
 from .projector import Projector
 
@@ -101,7 +101,10 @@ class VisualTransformer(nn.Module):
         else:
             self.tokenizer = FilterTokenizer(in_channels, token_channels, tokens)
         
-        # Transformer(token_channels, attn_dim)
+        
+        # self.transformer = SelfAttention(token_channels, token_channels)
+        
+        #Transformer(token_channels, attn_dim)
         self.transformer = nn.Transformer(
             token_channels, 
             nhead=transformer_heads, 
@@ -110,6 +113,12 @@ class VisualTransformer(nn.Module):
             dim_feedforward=transformer_fc_dim,
             dropout=transformer_dropout
         )
+
+        # self.transformer = Transformer(
+        #     token_channels=token_channels,
+        #     attn_dim=attn_dim,
+        #     dropout=transformer_dropout
+        # )
         
         self.projector = None
         if is_projected:
