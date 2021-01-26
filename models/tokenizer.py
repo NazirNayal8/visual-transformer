@@ -24,6 +24,7 @@ class FilterTokenizer(nn.Module):
 
         self.cache1 = None
         self.cache2 = None
+        self.token_cache = None
 
         # initialize weights
         nn.init.xavier_normal_(self.linear1.weight)
@@ -43,12 +44,13 @@ class FilterTokenizer(nn.Module):
         
         a = self.linear1(x) # of size (N, HW, L)
         self.cache1 = a
-        a = a.softmax(dim=2) # softmax for HW dimension, such that every group l features sum to 1
+        a = a.softmax(dim=1) # softmax for HW dimension, such that every group l features sum to 1
         self.cache2 = a
         a = torch.transpose(a, 1 , 2) # swap dimensions 1 and 2, of size (N, L, HW)
         a = a.matmul(x)  # of size (N, L, C)
         a = self.linear2(a) # of size (N, L, D)
 
+        self.token_cache = a
         return a
 
 class RecurrentTokenizer(nn.Module):
@@ -71,6 +73,7 @@ class RecurrentTokenizer(nn.Module):
 
         self.cache1 = None
         self.cache2 = None
+        self.token_cache = None 
 
         # initialize weights
         nn.init.xavier_normal_(self.linear1.weight)
@@ -92,15 +95,18 @@ class RecurrentTokenizer(nn.Module):
     
         a = self.linear1(t) # of size (N, L, D)
         
-        x = self.linear2(x) # of size (N, HW, D)
+        b = self.linear2(x) # of size (N, HW, D)
        
         a = torch.transpose(a, 1, 2) # transpose by swapping dimensions to become (N, D, L)
-        a = x.matmul(a) # of size (N, HW, L)
+        
+        a = b.matmul(a) # of size (N, HW, L)
         self.cache1 = a
-        a = a.softmax(dim=2) # softmax for HW dimension, such that every group l features sum to 1
+        a = a.softmax(dim=1) # softmax for HW dimension, such that every group l features sum to 1
         self.cache2 = a
         a = torch.transpose(a, 1, 2) # transpose by swapping dimensions to become (N, L, HW)
-        x = a.matmul(x) # of size (N, L, D)
+        b = a.matmul(b) # of size (N, L, D)
 
-        return x
+        self.token_cache
+
+        return b
     

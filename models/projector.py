@@ -25,6 +25,8 @@ class Projector(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.token_channels = token_channels
+
+        self.cache = None
         
         self.linear1 = nn.Linear(in_channels, token_channels, bias=False) # modifies feature map (query)
         self.linear2 = nn.Linear(token_channels , token_channels, bias=False) # modifies tokens (key)
@@ -60,6 +62,7 @@ class Projector(nn.Module):
         t_q = torch.transpose(t_q, 1, 2) # of size (N, C_out, L) 
         a = x_q.matmul(t_q) # of size (N, HW, L)
         a = a.softmax(dim=2) # of size (N, HW, L)
+        self.cache = a
         
         t = self.linear3(t) # of size (N, L, C_out)
 

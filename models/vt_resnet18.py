@@ -6,7 +6,7 @@ from typing import Type, Union, List
 from .visual_transformer import VisualTransformer
 from .resnet import BasicBlock, Bottleneck, resnet18_blocks, conv1x1, conv3x3
 
-class VTResNet(nn.Module):
+class VTResNet18(nn.Module):
     """
     An implementation of Token-Based Visual Transformer by We et al. on top of ResNet
     Essentially the last stage of resnet is replaced by VisualTransformer blocks which 
