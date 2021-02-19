@@ -113,8 +113,6 @@ class VTResNet20(nn.Module):
         N, C, H, W = x.shape
         # flatten pixels
         
-        #x = x.view(N, H * W, -1)
-        
         x = torch.flatten(x, 2)
         x = x.permute(0, 2, 1)
         
