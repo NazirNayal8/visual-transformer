@@ -115,7 +115,6 @@ class VTResNet(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x: Tensor) -> Tensor:
-        
         x = self.resnet(x)
         x = self.bn(x)
 
@@ -129,7 +128,7 @@ class VTResNet(nn.Module):
         
         for i in range(1, self.vt_layers_num):
             x, t = self.vt_layers[i](x, t)
-         
+    
         x = x.reshape(N, self.vt_channels, self.vt_layer_res, self.vt_layer_res)
           
         x = self.avgpool(x)

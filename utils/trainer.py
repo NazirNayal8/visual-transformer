@@ -40,7 +40,7 @@ def train_epoch(model: nn.Module, optimizer: Optimizer, data_loader: Any, device
     model.to(device)
 
     loss_history = []
-    for i, (data, target) in enumerate(data_loader):
+    for i, (data, target) in enumerate(tqdm.tqdm(data_loader)):
         
         data = data.to(device)
         target = target.to(device)
@@ -78,7 +78,7 @@ def evaluate(model: nn.Module, data_loader: Any, device: torch.device, comment: 
     loss_history = []
 
     with torch.no_grad():
-        for data, target in data_loader:
+        for data, target in tqdm.tqdm(data_loader):
             data = data.to(device)
             target = target.to(device)
             output = F.log_softmax(model(data), dim=1)
@@ -110,7 +110,10 @@ def train(
     optim: Callable,
     device: torch.device,
     evaluate_every: bool = True,
-    plot_every: bool = False
+    plot_every: bool = False,
+    optimize: bool = True,
+    threshold_acc: float = 100.0,
+    threshold_itr: float = 5
 ):
     """
     This is the main function used for training the model. 
@@ -156,10 +159,16 @@ def train(
         print("Epoch " + str(i) + " done.")
         
         if evaluate_every:
-            valid_acc, valid_hist = evaluate(model, valid_data, device, 'test')
+            valid_acc, valid_hist = evaluate(model, valid_data, device, 'valid')
             train_acc, train_hist = evaluate(model, train_data, device, 'train')
+            
+            if optimize and i + 1 > threshold_itr and valid_acc < threshold_acc:
+                print('Training Aborted due to Poor Performance.')
+                break
+                 
+          
         
-    valid_acc, valid_hist = evaluate(model, valid_data, device, 'test')
+    valid_acc, valid_hist = evaluate(model, valid_data, device, 'valid')
     train_acc, train_hist = evaluate(model, train_data, device, 'train')
 
     return valid_acc, train_acc, all_history
