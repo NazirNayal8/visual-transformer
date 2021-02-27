@@ -16,7 +16,7 @@ class ImageNetDataset(Dataset):
     train_data_dir = '/datasets/ImageNet/ILSVRC2015/Data/CLS-LOC/train'
     valid_data_dir = '/datasets/ImageNet/ILSVRC2015/Data/CLS-LOC/val'
     
-    def __init__(self, train: bool, transform=None):
+    def __init__(self, train: bool, num_classes: int = 1000, transform=None):
 
         self.transform = transform
         
@@ -43,24 +43,38 @@ class ImageNetDataset(Dataset):
             train_data_folders = os.listdir(self.train_data_dir)
             for ID in train_data_folders:
                 label = self.class_id_to_index[ID]
+                
+                if label > num_classes:
+                    continue
+                
                 label_path = os.path.join(self.train_data_dir, ID)
                 for data_file in os.listdir(label_path):
                     self.data.append(os.path.join(label_path, data_file))
                     self.labels.append(label)
         else:
             valid_f = open(self.valid_labels_path, "r")
+            mask = []
             for line in valid_f:
-                self.labels.append(int(line[:-1]))
+                label = int(line[:-1])
+                if label > num_classes:
+                    mask.append(False)
+                    continue
+                self.labels.append(label)
+                mask.append(True)
+            i = 0
             for data_file in sorted(os.listdir(self.valid_data_dir)):
+                if not mask[i]:
+                    i += 1
+                    continue
                 self.data.append(os.path.join(self.valid_data_dir, data_file))
-            
+                i += 1
             
     def __len__(self):
         return len(self.labels)
         
     def __getitem__(self, index):
         
-        label = self.labels[index]
+        label = self.labels[index] - 1
         data_path = self.data[index]
         data = mpimg.imread(data_path)
         
