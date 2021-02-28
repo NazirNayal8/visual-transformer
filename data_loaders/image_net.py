@@ -1,8 +1,9 @@
 import os
 import numpy as np
 import matplotlib.image as mpimg
-import torch
+from typing import List
 from torch.utils.data import Dataset
+
 
 class ImageNetDataset(Dataset):
     """
@@ -16,7 +17,7 @@ class ImageNetDataset(Dataset):
     train_data_dir = '/datasets/ImageNet/ILSVRC2015/Data/CLS-LOC/train'
     valid_data_dir = '/datasets/ImageNet/ILSVRC2015/Data/CLS-LOC/val'
     
-    def __init__(self, train: bool, num_classes: int = 1000, transform=None):
+    def __init__(self, train: bool, num_classes: int = 1000, transform=None, class_list: List[int] = None):
 
         self.transform = transform
         
@@ -24,7 +25,16 @@ class ImageNetDataset(Dataset):
         self.class_index_to_name = {}
         self.class_name_to_index = {}
         self.train = train
-        
+        self.class_list = class_list
+        self.classes = []
+
+        if class_list is not None:
+            for label in class_list:
+                self.classes.append(self.class_index_to_name[label])
+        else:
+            for label in range(num_classes):
+                self.classes.append(self.class_index_to_name[label])
+
         # store labels
         self.labels = []
         # store paths to images
@@ -34,7 +44,7 @@ class ImageNetDataset(Dataset):
         train_f = open(self.train_labels_path, "r") 
         for line in train_f:
             ID, index, name = line[:-1].split(' ')
-            index = int(index)
+            index = int(index) - 1
             self.class_id_to_index[ID] = index
             self.class_index_to_name[index] = name
             self.class_name_to_index[name] = index
@@ -43,8 +53,10 @@ class ImageNetDataset(Dataset):
             train_data_folders = os.listdir(self.train_data_dir)
             for ID in train_data_folders:
                 label = self.class_id_to_index[ID]
-                
-                if label > num_classes:
+
+                if class_list is not None and label not in class_list:
+                    continue
+                elif label > num_classes:
                     continue
                 
                 label_path = os.path.join(self.train_data_dir, ID)
@@ -56,9 +68,13 @@ class ImageNetDataset(Dataset):
             mask = []
             for line in valid_f:
                 label = int(line[:-1])
-                if label > num_classes:
+                if class_list is not None and label not in class_list:
                     mask.append(False)
                     continue
+                elif label > num_classes:
+                    mask.append(False)
+                    continue
+
                 self.labels.append(label)
                 mask.append(True)
             i = 0
@@ -74,7 +90,7 @@ class ImageNetDataset(Dataset):
         
     def __getitem__(self, index):
         
-        label = self.labels[index] - 1
+        label = self.labels[index]
         data_path = self.data[index]
         data = mpimg.imread(data_path)
         
@@ -84,11 +100,16 @@ class ImageNetDataset(Dataset):
             data_temp = data.copy()
             data = np.zeros((H, W, 3))
             for i in range(3):
-                data[:,:,i] = data_temp
+                data[:, :, i] = data_temp
             
             data = data.astype(np.uint8)
         if self.transform:
             data = self.transform(data)
         
         return data, label
-        
+
+    def get_class_list(self):
+        return self.class_list
+
+    def get_class_name(self, label):
+        return self.class_index_to_name[label]
