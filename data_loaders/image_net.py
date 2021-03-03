@@ -28,13 +28,6 @@ class ImageNetDataset(Dataset):
         self.class_list = class_list
         self.classes = []
 
-        if class_list is not None:
-            for label in class_list:
-                self.classes.append(self.class_index_to_name[label])
-        else:
-            for label in range(num_classes):
-                self.classes.append(self.class_index_to_name[label])
-
         # store labels
         self.labels = []
         # store paths to images
@@ -56,7 +49,7 @@ class ImageNetDataset(Dataset):
 
                 if class_list is not None and label not in class_list:
                     continue
-                elif label > num_classes:
+                elif label >= num_classes:
                     continue
                 
                 label_path = os.path.join(self.train_data_dir, ID)
@@ -67,11 +60,11 @@ class ImageNetDataset(Dataset):
             valid_f = open(self.valid_labels_path, "r")
             mask = []
             for line in valid_f:
-                label = int(line[:-1])
+                label = int(line[:-1]) - 1
                 if class_list is not None and label not in class_list:
                     mask.append(False)
                     continue
-                elif label > num_classes:
+                elif label >= num_classes:
                     mask.append(False)
                     continue
 
@@ -84,6 +77,25 @@ class ImageNetDataset(Dataset):
                     continue
                 self.data.append(os.path.join(self.valid_data_dir, data_file))
                 i += 1
+                
+        if class_list is not None:
+            for label in class_list:
+                self.classes.append(self.class_index_to_name[label])
+        else:
+            for label in range(num_classes):
+                self.classes.append(self.class_index_to_name[label])
+        
+        self.mapper = {}
+        self.mapper_inverse = {}
+        if class_list is not None:
+            for i, cls in enumerate(class_list):
+                self.mapper[cls] = i
+                self.mapper_inverse[i] = cls
+        else:
+            for i in range(num_classes):
+                self.mapper[i] = i
+                self.mapper_inverse[i] = i
+ 
             
     def __len__(self):
         return len(self.labels)
@@ -106,10 +118,10 @@ class ImageNetDataset(Dataset):
         if self.transform:
             data = self.transform(data)
         
-        return data, label
+        return data, self.mapper[label]
 
     def get_class_list(self):
         return self.class_list
 
     def get_class_name(self, label):
-        return self.class_index_to_name[label]
+        return self.class_index_to_name[self.mapper_inverse[label]]

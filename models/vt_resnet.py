@@ -142,6 +142,7 @@ def create_model(
     block: Type[Union[BasicBlock, Bottleneck]],
     layers: List[int],
     pretrained: bool,
+    freeze: str,
     progress: bool,
     **kwargs: Any
 ) -> VTResNet:
@@ -150,9 +151,23 @@ def create_model(
     the VT Module.
     """
     resnet = ResNet(block, layers)
+    
+    if freeze not in ['no_freeze', 'partial_freeze', 'full_freeze']:
+        raise ValueError('Freeze value undefined')
+    
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
         resnet.load_state_dict(state_dict)
+        
+        if freeze == 'partial_freeze':
+            for n, p in resnet.named_parameters():
+                if "conv1" in n or "bn1" in n or "layer1" in n:
+                    p.requires_grad = False
+        elif freeze == 'full_freeze':
+            for n, p in resnet.named_parameters():
+                if "conv" in n or "bn" in n or "layer" in n:
+                    p.requires_grad = False
+        
     else:
         for m in resnet.modules():
             if isinstance(m, nn.Conv2d):
@@ -160,11 +175,11 @@ def create_model(
             
     return VTResNet(resnet, layers[-1], **kwargs)
 
-def vt_resnet18(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> VTResNet:
+def vt_resnet18(pretrained: bool = False, freeze: str = 'no_freeze', progress: bool = True, **kwargs: Any) -> VTResNet:
     """
     Create a VTResNet Model with ResNet18 as a convolutional backbone.
     """
-    return create_model('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, **kwargs)
+    return create_model('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, freeze, progress, **kwargs)
     
 def vt_resnet34(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> VTResNet:
     """
