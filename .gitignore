@@ -1,2 +1,8 @@
 .ipynb_checkpoints
 __pycache__
+trained_models
+params
+saved_models
+trained_models
+.idea
+models/__pycache__

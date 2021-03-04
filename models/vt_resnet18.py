@@ -21,7 +21,7 @@ class VTResNet18(nn.Module):
         tokens: int,
         token_channels: int,
         input_dim: int,
-        layer_planes: List[int],
+        layer_channels: List[int],
         transformer_enc_layers: int,
         transformer_heads: int,
         transformer_fc_dim: int = 2024,
@@ -37,10 +37,10 @@ class VTResNet18(nn.Module):
         self.tokens = tokens
         
         # defaut values for resnet are [64, 128, 256, 512]
-        self.layer1_planes = layer_planes[0]
-        self.layer2_planes = layer_planes[1]
-        self.layer3_planes = layer_planes[2]
-        self.layer4_planes = layer_planes[3]
+        self.layer1_channels = layer_channels[0]
+        self.layer2_channels = layer_channels[1]
+        self.layer3_channels = layer_channels[2]
+        self.layer4_channels = layer_channels[3]
         
         # for input of size 224 default values are [56, 28, 14, 14]
         self.layer1_res = input_dim // 4 
@@ -55,31 +55,31 @@ class VTResNet18(nn.Module):
         
         self.resnet_layer1 = self._make_layer(
             block=resnet_block, 
-            planes= self.layer1_planes,
+            planes= self.layer1_channels,
             blocks= layers[0]
         )
         
         self.resnet_layer2 = self._make_layer(
             block=resnet_block, 
-            planes= self.layer2_planes,
+            planes= self.layer2_channels,
             blocks= layers[1],
             stride=2,
         )
         
         self.resnet_layer3 = self._make_layer(
             block=resnet_block, 
-            planes= self.layer3_planes,
+            planes= self.layer3_channels,
             blocks= layers[2],
             stride=2,
         )
 
-        self.bn = nn.BatchNorm2d(self.layer3_planes)
+        self.bn = nn.BatchNorm2d(self.layer3_channels)
         
         self.vt_layers = nn.ModuleList()
         self.vt_layers.append(
             VisualTransformer(
                 in_channels=self.inplanes,
-                out_channels=self.layer4_planes,
+                out_channels=self.layer4_channels,
                 token_channels=token_channels,
                 tokens=tokens,
                 tokenizer_type='filter',
@@ -95,8 +95,8 @@ class VTResNet18(nn.Module):
         for _ in range(1, layers[3]):
             self.vt_layers.append(
                 VisualTransformer(
-                    in_channels= self.layer4_planes,
-                    out_channels= self.layer4_planes,
+                    in_channels= self.layer4_channels,
+                    out_channels= self.layer4_channels,
                     token_channels=token_channels,
                     tokens=tokens,
                     tokenizer_type='recurrent',
@@ -110,7 +110,7 @@ class VTResNet18(nn.Module):
             )
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(self.layer4_planes, num_classes)
+        self.fc = nn.Linear(self.layer4_channels, num_classes)
         
         # intialize weights
         for m in self.modules():
@@ -155,14 +155,16 @@ class VTResNet18(nn.Module):
 
         N, C, H, W = x.shape
         # flatten pixels
-        x = x.view(N, H * W, -1)
+        
+        x = torch.flatten(x, 2)
+        x = x.permute(0, 2, 1)
         
         x, t = self.vt_layers[0](x)
         
         for i in range(1, self.layers[3]):
             x, t = self.vt_layers[i](x, t)
          
-        x = x.reshape(N, self.layer4_planes, self.layer4_res, self.layer4_res)
+        x = x.reshape(N, self.layer4_channels, self.layer4_res, self.layer4_res)
           
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
