@@ -129,6 +129,7 @@ class VTResNet(nn.Module):
         for i in range(1, self.vt_layers_num):
             x, t = self.vt_layers[i](x, t)
     
+        x = x.permute(0, 2, 1)
         x = x.reshape(N, self.vt_channels, self.vt_layer_res, self.vt_layer_res)
           
         x = self.avgpool(x)

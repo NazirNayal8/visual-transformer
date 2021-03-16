@@ -28,7 +28,8 @@ class VTResNet20(nn.Module):
         image_channels: int = 3,
         num_classes: int = 1000,
         resnet_pretrained: bool = True,
-        freeze_resnet: bool = True
+        freeze_resnet: bool = True,
+        corr_loss: bool = False
     ) -> None:
         super().__init__()
         
@@ -37,7 +38,7 @@ class VTResNet20(nn.Module):
         self.vt_inplanes = 32
         self.vt_channels = vt_channels
         self.vt_num_layers = vt_num_layers
-
+        self.corr_loss = corr_loss
         self.vt_layer_res = input_dim // 2
         
         self.resnet20 = None
@@ -102,9 +103,29 @@ class VTResNet20(nn.Module):
     
     def pretrained_ResNet20(self):
         res = ResNet20()
-        checkpoint = torch.load('./saved_models/ckpt_ResNet20_small_backbone_8x8.pth')
+        checkpoint = torch.load('./trained_models/ckpt_ResNet20_small_backbone_8x8.pth')
         res.load_state_dict(checkpoint)
         return res
+    
+    def covariance(x):
+        x = x.to(torch.float64)
+        b,n,d = x.shape
+        x_flat = torch.reshape(x, (b,-1))
+        x_flat_mu = torch.mean(x_flat, dim = 0, keepdims=True)
+        factor = 1 / (x_flat.size(0) - 1)
+        diff = x_flat - x_flat_mu
+        cov = factor * torch.matmul(diff.transpose(-1,-2), diff)
+        return cov
+
+    def correlation_loss(t):
+        t = t.to(torch.float64)
+        b,nt,dt = t.shape
+        cov_all_t = covariance(t)
+        cov_all_tunf = F.unfold(torch.reshape(cov_all_t,(1,1,nt*dt,nt*dt)), (dt,dt), stride=dt).permute(0,2,1)
+        cov_mask = torch.reshape(1-torch.eye(nt), (1,-1,1))
+        cov_all_tmasked = cov_all_tunf * cov_mask
+        cov_loss = torch.abs(torch.sum(cov_all_tmasked) * (1/np.sqrt(nt)))
+        return cov_loss
     
     def forward(self, x: Tensor) -> Tensor:
         
@@ -116,10 +137,16 @@ class VTResNet20(nn.Module):
         x = torch.flatten(x, 2)
         x = x.permute(0, 2, 1)
         
+       
         x, t = self.vt_layers[0](x)
-        
+          
+        if self.corr_loss:
+            corr_loss = correlation_loss(t)
+    
         for i in range(1, self.vt_num_layers):
             x, t = self.vt_layers[i](x, t)
+            if self.corr_loss:
+                corr_loss += correlation_loss(t)
         
         x = x.permute(0, 2, 1)
         x = x.reshape(N, self.vt_channels, self.vt_layer_res, self.vt_layer_res)
@@ -127,5 +154,8 @@ class VTResNet20(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
+        
+        if self.corr_loss:
+            return x, corr_loss
         
         return x
