@@ -209,6 +209,8 @@ class ResNet(nn.Module):
         block: Type[Union[BasicBlock, Bottleneck]],
         layers: List[int],
         num_classes: int = 1000,
+        backbone: bool = True,
+        custom_class_num: bool = False,
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
@@ -219,9 +221,16 @@ class ResNet(nn.Module):
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
-
+        self.block = block
+        self.num_classes = num_classes
+        self.custom_class_num = custom_class_num
+        self.backbone = backbone
         self.inplanes = 64
         self.dilation = 1
+        
+        if custom_class_num:
+            num_classes = 1000
+        
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
             # the 2x2 stride with a dilated convolution instead
@@ -315,7 +324,41 @@ class ResNet(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        return x # self._forward_impl(x)
+        
+        if self.backbone:
+            return x
+        
+        x = self.layer4(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        
+        if self.custom_class_num:
+            return x
+        
+        x = self.fc(x)
+        
+        return x
+    
+class ResNetFlex(nn.Module):
+    """
+    This class allows using Pretrained ResNet but with a custom number of output classes
+    """
+    def __init__(
+        self,
+        resnet: nn.Module,
+    ) -> None:
+        super(ResNetFlex, self).__init__()
+        
+        self.resnet = resnet
+        self.fc = nn.Linear(512 * resnet.block.expansion, resnet.num_classes)
+        
+       
+    def forward(self, x):
+        
+        x = self.resnet(x)
+        x = self.fc(x)
+        
+        return x
 
 
 def _resnet(
@@ -324,13 +367,19 @@ def _resnet(
     layers: List[int],
     pretrained: bool,
     progress: bool,
+    custom_class_num: bool = False,
     **kwargs: Any
 ) -> ResNet:
-    model = ResNet(block, layers, **kwargs)
+
+    model = ResNet(block, layers, custom_class_num=custom_class_num, **kwargs)
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
         model.load_state_dict(state_dict)
+    
+    if custom_class_num:
+        return ResNetFlex(model)
+    
     return model
 
 

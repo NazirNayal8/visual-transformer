@@ -146,12 +146,16 @@ class VisualTransformer(nn.Module):
             t = self.tokenizer(x) 
         else:
             t = self.tokenizer(x, t)
-        
+        # (N, L, C) -> (L, N, C)
+        t = t.permute(1, 0, 2)
         # apply transformer
-        out = self.transformer(t, t)
+        t_out = self.transformer(t, t)
+        
+        t_out = t_out.permute(1, 0, 2) 
+        t = t.permute(1, 0, 2)
         
         if self.is_projected:
-            out = self.projector(x, t)
+            out = self.projector(x, t_out)
         
         return out, t
         
